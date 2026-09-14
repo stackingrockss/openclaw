@@ -1,0 +1,18 @@
+{
+  "initialPrefs": {},
+  "unpinnedPrefs": {
+    "sidebarHomePinned": false
+  },
+  "cleanBrowserPrefs": {
+    "sidebarHomePinned": false
+  },
+  "resetPrefs": {
+    "sidebarHomePinned": true
+  },
+  "session": {
+    "key": "agent:main:main",
+    "label": "Main conversation",
+    "category": "Projects",
+    "sameSession": true
+  }
+}

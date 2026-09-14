@@ -1,0 +1,42 @@
+{
+  "initialPrefs": {
+    "sidebarEntries": [
+      "route:usage",
+      "route:cron"
+    ],
+    "themeMode": "dark"
+  },
+  "unpinnedPrefs": {
+    "themeMode": "dark",
+    "sidebarEntries": [
+      "route:usage",
+      "route:cron"
+    ],
+    "sidebarHomePinned": false
+  },
+  "cleanBrowserPrefs": {
+    "themeMode": "dark",
+    "sidebarEntries": [
+      "route:usage",
+      "route:cron"
+    ],
+    "sidebarHomePinned": false
+  },
+  "resetPrefs": {
+    "themeMode": "dark",
+    "sidebarEntries": [
+      "route:agents-home",
+      "route:dashboards",
+      "route:systems",
+      "route:cron",
+      "route:plugins"
+    ],
+    "sidebarHomePinned": true
+  },
+  "session": {
+    "key": "agent:main:main",
+    "label": "Main conversation",
+    "category": "Projects",
+    "sameSession": true
+  }
+}
