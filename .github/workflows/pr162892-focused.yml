@@ -24,22 +24,26 @@ jobs:
       BASE_SHA: 1c88dd27dd189ec89f4218380be235d893c9b28a
       PNPM_SPEC: pnpm@12.5.1+sha512.e3f305bc784a2bc89f5ad3b6138889470fae8d2af5f36b61216ec91c2c3d64089775f9de38aac331044ea40f245cb0d5666392dfdf65824e1907ef6a2c62de5f
       COREPACK_ENABLE_DOWNLOAD_PROMPT: "0"
-      HOME: ${{ runner.temp }}/pr162892/home
-      OPENCLAW_HOME: ${{ runner.temp }}/pr162892/home
-      OPENCLAW_STATE_DIR: ${{ runner.temp }}/pr162892/state
-      OPENCLAW_CONFIG_PATH: ${{ runner.temp }}/pr162892/state/openclaw.json
-      XDG_CONFIG_HOME: ${{ runner.temp }}/pr162892/xdg-config
-      XDG_CACHE_HOME: ${{ runner.temp }}/pr162892/xdg-cache
-      XDG_DATA_HOME: ${{ runner.temp }}/pr162892/xdg-data
-      XDG_STATE_HOME: ${{ runner.temp }}/pr162892/xdg-state
-      PNPM_HOME: ${{ runner.temp }}/pr162892/pnpm
-      COREPACK_HOME: ${{ runner.temp }}/pr162892/corepack
-      npm_config_cache: ${{ runner.temp }}/pr162892/npm-cache
-      EVIDENCE_DIR: ${{ runner.temp }}/pr162892/evidence
     steps:
       - name: Prepare synthetic state and public evidence directory
+        env:
+          HOME: ${{ runner.temp }}/pr162892/home
+          OPENCLAW_HOME: ${{ runner.temp }}/pr162892/home
+          OPENCLAW_STATE_DIR: ${{ runner.temp }}/pr162892/state
+          OPENCLAW_CONFIG_PATH: ${{ runner.temp }}/pr162892/state/openclaw.json
+          XDG_CONFIG_HOME: ${{ runner.temp }}/pr162892/xdg-config
+          XDG_CACHE_HOME: ${{ runner.temp }}/pr162892/xdg-cache
+          XDG_DATA_HOME: ${{ runner.temp }}/pr162892/xdg-data
+          XDG_STATE_HOME: ${{ runner.temp }}/pr162892/xdg-state
+          PNPM_HOME: ${{ runner.temp }}/pr162892/pnpm
+          COREPACK_HOME: ${{ runner.temp }}/pr162892/corepack
+          npm_config_cache: ${{ runner.temp }}/pr162892/npm-cache
+          EVIDENCE_DIR: ${{ runner.temp }}/pr162892/evidence
         run: |
           set -euo pipefail
+          for variable in HOME OPENCLAW_HOME OPENCLAW_STATE_DIR OPENCLAW_CONFIG_PATH XDG_CONFIG_HOME XDG_CACHE_HOME XDG_DATA_HOME XDG_STATE_HOME PNPM_HOME COREPACK_HOME npm_config_cache EVIDENCE_DIR; do
+            printf '%s=%s\n' "$variable" "${!variable}" >> "$GITHUB_ENV"
+          done
           mkdir -p "$HOME" "$OPENCLAW_STATE_DIR/workspace" "$XDG_CONFIG_HOME" \
             "$XDG_CACHE_HOME" "$XDG_DATA_HOME" "$XDG_STATE_HOME" "$PNPM_HOME" \
             "$COREPACK_HOME" "$npm_config_cache" "$EVIDENCE_DIR"
