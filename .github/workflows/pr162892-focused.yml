@@ -20,7 +20,7 @@ jobs:
       CI: "true"
       OPENCLAW_TEST_PROJECTS_SERIAL: "1"
       # Replace only CANDIDATE_SHA with the reviewed repair commit before publication.
-      CANDIDATE_SHA: c59bd82a69dca086adbc5d29da3524e3c1e7a1c0
+      CANDIDATE_SHA: 035e16f293ee6e92991709daa53f7cdd114875ee
       BASE_SHA: 1c88dd27dd189ec89f4218380be235d893c9b28a
       PNPM_SPEC: pnpm@12.5.1+sha512.e3f305bc784a2bc89f5ad3b6138889470fae8d2af5f36b61216ec91c2c3d64089775f9de38aac331044ea40f245cb0d5666392dfdf65824e1907ef6a2c62de5f
       COREPACK_ENABLE_DOWNLOAD_PROMPT: "0"
@@ -49,6 +49,15 @@ jobs:
             "$COREPACK_HOME" "$npm_config_cache" "$EVIDENCE_DIR"
           printf '%s\n' 'PR 162892 synthetic secretless validation; no operator state or credentials.' \
             > "$EVIDENCE_DIR/scope.txt"
+
+      - name: Install repository system prerequisite
+        run: |
+          set -euo pipefail
+          if ! command -v rg >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install --yes --no-install-recommends ripgrep
+          fi
+          rg --version
 
       - name: Checkout exact source candidate
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
