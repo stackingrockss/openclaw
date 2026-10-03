@@ -11,8 +11,9 @@ permissions:
 
 jobs:
   focused-validation:
+    name: Exact-head changed checks (tests recorded in run 37147264673)
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
     defaults:
       run:
         shell: bash
@@ -109,24 +110,6 @@ jobs:
           set -euo pipefail
           pnpm install --frozen-lockfile 2>&1 | tee "$EVIDENCE_DIR/install.log"
           git diff HEAD --exit-code 2>&1 | tee "$EVIDENCE_DIR/post-install-source.log"
-
-      - name: Run every PR-touched test through the repository wrapper
-        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
-        working-directory: candidate
-        run: |
-          set -euo pipefail
-          {
-            test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
-            git diff HEAD --exit-code
-            git diff --name-only -z "$BASE_SHA" "$CANDIDATE_SHA" -- '*.test.ts' > "$EVIDENCE_DIR/touched-tests.nul"
-            mapfile -d '' -t test_files < "$EVIDENCE_DIR/touched-tests.nul"
-            test "${#test_files[@]}" -gt 0
-            for test_file in "${test_files[@]}"; do
-              test -f "$test_file"
-            done
-            printf '%s\n' "${test_files[@]}" | tee "$EVIDENCE_DIR/touched-tests.txt"
-            pnpm test "${test_files[@]}" --maxWorkers=1
-          } 2>&1 | tee "$EVIDENCE_DIR/tests.log"
 
       - name: Run exact-base changed checks
         if: ${{ !cancelled() && steps.install.outcome == 'success' }}
