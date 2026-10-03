@@ -1,0 +1,145 @@
+name: PR 162892 focused validation
+
+# Supplemental secretless evidence only; not a canonical CI or release gate.
+on:
+  push:
+    branches:
+      - ci/pr-162892-focused-validation
+
+permissions:
+  contents: read
+
+jobs:
+  focused-validation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: bash
+    env:
+      CI: "true"
+      OPENCLAW_TEST_PROJECTS_SERIAL: "1"
+      # Replace only CANDIDATE_SHA with the reviewed repair commit before publication.
+      CANDIDATE_SHA: c59bd82a69dca086adbc5d29da3524e3c1e7a1c0
+      BASE_SHA: 1c88dd27dd189ec89f4218380be235d893c9b28a
+      PNPM_SPEC: pnpm@12.5.1+sha512.e3f305bc784a2bc89f5ad3b6138889470fae8d2af5f36b61216ec91c2c3d64089775f9de38aac331044ea40f245cb0d5666392dfdf65824e1907ef6a2c62de5f
+      COREPACK_ENABLE_DOWNLOAD_PROMPT: "0"
+      HOME: ${{ runner.temp }}/pr162892/home
+      OPENCLAW_HOME: ${{ runner.temp }}/pr162892/home
+      OPENCLAW_STATE_DIR: ${{ runner.temp }}/pr162892/state
+      OPENCLAW_CONFIG_PATH: ${{ runner.temp }}/pr162892/state/openclaw.json
+      XDG_CONFIG_HOME: ${{ runner.temp }}/pr162892/xdg-config
+      XDG_CACHE_HOME: ${{ runner.temp }}/pr162892/xdg-cache
+      XDG_DATA_HOME: ${{ runner.temp }}/pr162892/xdg-data
+      XDG_STATE_HOME: ${{ runner.temp }}/pr162892/xdg-state
+      PNPM_HOME: ${{ runner.temp }}/pr162892/pnpm
+      COREPACK_HOME: ${{ runner.temp }}/pr162892/corepack
+      npm_config_cache: ${{ runner.temp }}/pr162892/npm-cache
+      EVIDENCE_DIR: ${{ runner.temp }}/pr162892/evidence
+    steps:
+      - name: Prepare synthetic state and public evidence directory
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME" "$OPENCLAW_STATE_DIR/workspace" "$XDG_CONFIG_HOME" \
+            "$XDG_CACHE_HOME" "$XDG_DATA_HOME" "$XDG_STATE_HOME" "$PNPM_HOME" \
+            "$COREPACK_HOME" "$npm_config_cache" "$EVIDENCE_DIR"
+          printf '%s\n' 'PR 162892 synthetic secretless validation; no operator state or credentials.' \
+            > "$EVIDENCE_DIR/scope.txt"
+
+      - name: Checkout exact source candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.CANDIDATE_SHA }}
+          fetch-depth: 0
+          persist-credentials: false
+          path: candidate
+
+      - name: Verify immutable candidate, original base, and pristine source
+        working-directory: candidate
+        run: |
+          set -euo pipefail
+          {
+            test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
+            test "$(git rev-parse "$BASE_SHA^{commit}")" = "$BASE_SHA"
+            git merge-base --is-ancestor "$BASE_SHA" "$CANDIDATE_SHA"
+            test -z "$(git status --porcelain)"
+            printf 'candidate=%s\nbase=%s\n' "$CANDIDATE_SHA" "$BASE_SHA"
+            git diff --name-only "$BASE_SHA" "$CANDIDATE_SHA" -- '*.test.ts'
+          } 2>&1 | tee "$EVIDENCE_DIR/identity.log"
+
+      - name: Setup Node 24.21.0
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24.21.0"
+
+      - name: Setup verified manifest pnpm with Node bundled Corepack
+        working-directory: candidate
+        run: |
+          set -euo pipefail
+          {
+            test "$(node --version)" = "v24.21.0"
+            actual_spec="$(node -e 'process.stdout.write(JSON.parse(require("node:fs").readFileSync("package.json", "utf8")).packageManager)')"
+            test "$actual_spec" = "$PNPM_SPEC"
+            corepack enable --install-directory "$PNPM_HOME"
+            corepack prepare "$PNPM_SPEC" --activate
+            export PATH="$PNPM_HOME:$PATH"
+            test "$(pnpm --version)" = "12.5.1"
+            node --version
+            pnpm --version
+            printf '%s\n' "$PNPM_HOME" >> "$GITHUB_PATH"
+          } 2>&1 | tee "$EVIDENCE_DIR/toolchain.log"
+
+      - name: Install frozen dependencies
+        id: install
+        working-directory: candidate
+        run: |
+          set -euo pipefail
+          pnpm install --frozen-lockfile 2>&1 | tee "$EVIDENCE_DIR/install.log"
+          git diff HEAD --exit-code 2>&1 | tee "$EVIDENCE_DIR/post-install-source.log"
+
+      - name: Run every PR-touched test through the repository wrapper
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        working-directory: candidate
+        run: |
+          set -euo pipefail
+          {
+            test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
+            git diff HEAD --exit-code
+            git diff --name-only -z "$BASE_SHA" "$CANDIDATE_SHA" -- '*.test.ts' > "$EVIDENCE_DIR/touched-tests.nul"
+            mapfile -d '' -t test_files < "$EVIDENCE_DIR/touched-tests.nul"
+            test "${#test_files[@]}" -gt 0
+            for test_file in "${test_files[@]}"; do
+              test -f "$test_file"
+            done
+            printf '%s\n' "${test_files[@]}" | tee "$EVIDENCE_DIR/touched-tests.txt"
+            pnpm test "${test_files[@]}" --maxWorkers=1
+          } 2>&1 | tee "$EVIDENCE_DIR/tests.log"
+
+      - name: Run exact-base changed checks
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        working-directory: candidate
+        run: |
+          set -euo pipefail
+          pnpm check:changed --base "$BASE_SHA" --head "$CANDIDATE_SHA" \
+            2>&1 | tee "$EVIDENCE_DIR/check-changed.log"
+
+      - name: Verify source remains the exact candidate after proof
+        if: ${{ always() }}
+        working-directory: candidate
+        run: |
+          set -euo pipefail
+          {
+            test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
+            git diff HEAD --exit-code
+            printf "candidate_source_unchanged=true\n"
+          } 2>&1 | tee "$EVIDENCE_DIR/post-proof-source.log"
+
+      - name: Upload public synthetic validation logs
+        if: ${{ always() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: pr162892-focused-validation-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ env.EVIDENCE_DIR }}/
+          if-no-files-found: error
+          retention-days: 14
+          include-hidden-files: false
